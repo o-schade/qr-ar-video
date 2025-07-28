@@ -8,7 +8,24 @@
   <title>QR AR Video</title>
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js/aframe/build/aframe-ar.js"></script>
+  <style>
+    #loading {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 9999;
+      background: rgba(0,0,0,0.7);
+      color: white;
+      padding: 20px;
+      border-radius: 10px;
+    }
+  </style>
   <script>
+    function showLoading(show) {
+      const loading = document.getElementById('loading');
+      if (loading) loading.style.display = show ? 'block' : 'none';
+    }
     // Add camera constraints for better mobile compatibility
     window.addEventListener('load', () => {
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
@@ -30,6 +47,7 @@
 </head>
 
 <body style="margin: 0; overflow: hidden;">
+  <div id="loading">Loading AR Experience...</div>
   <a-scene embedded arjs='sourceType: webcam; 
             trackingMethod: best;
             debugUIEnabled: false;
@@ -38,22 +56,22 @@
     renderer="antialias: true; logarithmicDepthBuffer: true;">
     <a-entity camera></a-entity>
 
-    <a-assets>
-      <video id="video0" src="assets/Buchhaltung.mp4" preload="auto" crossorigin="anonymous" autoplay loop muted
+    <a-assets timeout="0">
+      <video id="video0" src="assets/Buchhaltung.mp4" preload="none" crossorigin="anonymous" autoplay loop muted
         playsinline webkit-playsinline style="display:none;"></video>
-      <video id="video1" src="assets/Customer_Service.mp4" preload="auto" crossorigin="anonymous" autoplay loop muted
+      <video id="video1" src="assets/Customer_Service.mp4" preload="none" crossorigin="anonymous" autoplay loop muted
         playsinline webkit-playsinline style="display:none;"></video>
-      <video id="video2" src="assets/E_Commerce.mp4" preload="auto" crossorigin="anonymous" autoplay loop muted
+      <video id="video2" src="assets/E_Commerce.mp4" preload="none" crossorigin="anonymous" autoplay loop muted
         playsinline webkit-playsinline style="display:none;"></video>
-      <video id="video3" src="assets/Fachinformatiker.mp4" preload="auto" crossorigin="anonymous" autoplay loop muted
+      <video id="video3" src="assets/Fachinformatiker.mp4" preload="none" crossorigin="anonymous" autoplay loop muted
         playsinline webkit-playsinline style="display:none;"></video>
-      <video id="video4" src="assets/Lagerlogistik.mp4" preload="auto" crossorigin="anonymous" autoplay loop muted
+      <video id="video4" src="assets/Lagerlogistik.mp4" preload="none" crossorigin="anonymous" autoplay loop muted
         playsinline webkit-playsinline style="display:none;"></video>
-      <video id="video5" src="assets/Mediengestalter.mp4" preload="auto" crossorigin="anonymous" autoplay loop muted
+      <video id="video5" src="assets/Mediengestalter.mp4" preload="none" crossorigin="anonymous" autoplay loop muted
         playsinline webkit-playsinline style="display:none;"></video>
-      <video id="video6" src="assets/PKA.mp4" preload="auto" crossorigin="anonymous" autoplay loop muted playsinline
+      <video id="video6" src="assets/PKA.mp4" preload="none" crossorigin="anonymous" autoplay loop muted playsinline
         webkit-playsinline style="display:none;"></video>
-      <video id="video7" src="assets/Studium.mp4" preload="auto" crossorigin="anonymous" autoplay loop muted playsinline
+      <video id="video7" src="assets/Studium.mp4" preload="none" crossorigin="anonymous" autoplay loop muted playsinline
         webkit-playsinline style="display:none;"></video>
     </a-assets>
 
@@ -147,6 +165,11 @@
   <script>
     let currentVideo = null;
 
+    // Hide loading when scene is ready
+    document.querySelector('a-scene').addEventListener('loaded', () => {
+      showLoading(false);
+    });
+
     AFRAME.registerComponent("video-handler", {
       schema: {
         videoId: { type: 'string' }
@@ -156,12 +179,18 @@
         const marker = this.el;
         const videoEl = document.getElementById(this.data.videoId);
         const arVideo = document.getElementById(`ar-${this.data.videoId}`);
+        let videoLoaded = false;
 
         videoEl.addEventListener('error', (e) => {
           console.error('Video error:', e.target.error);
         });
 
         marker.addEventListener("markerFound", () => {
+          if (!videoLoaded) {
+            videoEl.load();
+            videoLoaded = true;
+          }
+
           if (currentVideo && currentVideo !== videoEl) {
             currentVideo.pause();
             document.getElementById(`ar-${currentVideo.id}`).setAttribute("visible", false);
