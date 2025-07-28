@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QR AR Video</title>
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js/aframe/build/aframe-ar.js"></script>
+  </style>
+</head>
+
+<body style="margin: 0; overflow: hidden;">
+  <a-scene embedded arjs='sourceType: webcam; 
+            trackingMethod: best;
+            debugUIEnabled: false;
+            detectionMode: mono;
+            patternRatio: 0.75;
+            sourceWidth: 1280;
+            sourceHeight: 960;
+            displayWidth: 1280;
+            displayHeight: 960;' vr-mode-ui="enabled: false" loading-screen="enabled: false"
+    renderer="antialias: true; logarithmicDepthBuffer: true;">
+    <a-entity camera></a-entity>
+
+    <a-assets>
+      <video id="video0" src="assets/Buchhaltung.mp4" preload="auto" crossorigin="anonymous" autoplay loop muted
+        playsinline webkit-playsinline style="display:none;"></video>
+      <video id="video1" src="assets/Customer_Service.mp4" preload="auto" crossorigin="anonymous" autoplay loop muted
+        playsinline webkit-playsinline style="display:none;"></video>
+      <video id="video2" src="assets/E_Commerce.mp4" preload="auto" crossorigin="anonymous" autoplay loop muted
+        playsinline webkit-playsinline style="display:none;"></video>
+      <video id="video3" src="assets/Fachinformatiker.mp4" preload="auto" crossorigin="anonymous" autoplay loop muted
+        playsinline webkit-playsinline style="display:none;"></video>
+      <video id="video4" src="assets/Lagerlogistik.mp4" preload="auto" crossorigin="anonymous" autoplay loop muted
+        playsinline webkit-playsinline style="display:none;"></video>
+      <video id="video5" src="assets/Mediengestalter.mp4" preload="auto" crossorigin="anonymous" autoplay loop muted
+        playsinline webkit-playsinline style="display:none;"></video>
+      <video id="video6" src="assets/PKA.mp4" preload="auto" crossorigin="anonymous" autoplay loop muted playsinline
+        webkit-playsinline style="display:none;"></video>
+      <video id="video7" src="assets/Studium.mp4" preload="auto" crossorigin="anonymous" autoplay loop muted playsinline
+        webkit-playsinline style="display:none;"></video>
+    </a-assets>
+
+    <script>
+      const markerConfig = [
+        {
+          id: 'video0',
+          src: 'assets/Buchhaltung.mp4',
+          pattern: 'assets/pattern-0.patt'
+        },
+        {
+          id: 'video1',
+          src: 'assets/Customer_Service.mp4',
+          pattern: 'assets/pattern-1.patt'
+        },
+        {
+          id: 'video2',
+          src: 'assets/E_Commerce.mp4',
+          pattern: 'assets/pattern-2.patt'
+        },
+        {
+          id: 'video3',
+          src: 'assets/Fachinformatiker.mp4',
+          pattern: 'assets/pattern-3.patt'
+        },
+        {
+          id: 'video4',
+          src: 'assets/Lagerlogistik.mp4',
+          pattern: 'assets/pattern-4.patt'
+        },
+        {
+          id: 'video5',
+          src: 'assets/Mediengestalter.mp4',
+          pattern: 'assets/pattern-5.patt'
+        },
+        {
+          id: 'video6',
+          src: 'assets/PKA.mp4',
+          pattern: 'assets/pattern-6.patt'
+        },
+        {
+          id: 'video7',
+          src: 'assets/Studium.mp4',
+          pattern: 'assets/pattern-7.patt'
+        }
+      ];
+
+      const videoSettings = {
+        width: 6.48,
+        height: 11.52,
+        position: '0 0.1 0',
+        rotation: '-90 0 0'
+      };
+
+      window.addEventListener('DOMContentLoaded', () => {
+        const scene = document.querySelector('a-scene');
+
+        markerConfig.forEach(config => {
+          const marker = document.createElement('a-marker');
+          marker.setAttribute('type', 'pattern');
+          marker.setAttribute('url', config.pattern);
+          marker.setAttribute('id', `marker-${config.id}`);
+          marker.setAttribute('video-handler', `videoId: ${config.id}`);
+          marker.setAttribute('smooth', 'true');
+          marker.setAttribute('smoothCount', '2');
+          marker.setAttribute('smoothTolerance', '.01');
+          marker.setAttribute('smoothThreshold', '2');
+
+          const video = document.createElement('a-video');
+          video.setAttribute('id', `ar-${config.id}`);
+          video.setAttribute('src', `#${config.id}`);
+          video.setAttribute('width', videoSettings.width);
+          video.setAttribute('height', videoSettings.height);
+          video.setAttribute('position', videoSettings.position);
+          video.setAttribute('rotation', videoSettings.rotation);
+          video.setAttribute('visible', 'false');
+
+          marker.appendChild(video);
+          scene.appendChild(marker);
+        });
+
+        // Pause and reset all videos at load
+        document.querySelectorAll('video').forEach(video => {
+          video.pause();
+          video.currentTime = 0;
+        });
+      });
+    </script>
+  </a-scene>
+
+  <script>
+    let currentVideo = null;
+
+    AFRAME.registerComponent("video-handler", {
+      schema: {
+        videoId: { type: 'string' }
+      },
+
+      init: function () {
+        const marker = this.el;
+        const videoEl = document.getElementById(this.data.videoId);
+        const arVideo = document.getElementById(`ar-${this.data.videoId}`);
+
+        videoEl.addEventListener('error', (e) => {
+          console.error('Video error:', e.target.error);
+        });
+
+        marker.addEventListener("markerFound", () => {
+          if (currentVideo && currentVideo !== videoEl) {
+            currentVideo.pause();
+            document.getElementById(`ar-${currentVideo.id}`).setAttribute("visible", false);
+          }
+
+          arVideo.setAttribute("visible", true);
+          videoEl.play().then(() => {
+            currentVideo = videoEl;
+          }).catch(error => {
+            console.error('Video playback failed:', error);
+          });
+        });
+
+        marker.addEventListener("markerLost", () => {
+          arVideo.setAttribute("visible", false);
+          videoEl.pause();
+        });
+      },
+    });
+  </script>
+</body>
+
+</html>
