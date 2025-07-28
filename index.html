@@ -3,10 +3,29 @@
 
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes">
   <title>QR AR Video</title>
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js/aframe/build/aframe-ar.js"></script>
+  <script>
+    // Add camera constraints for better mobile compatibility
+    window.addEventListener('load', () => {
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        const constraints = {
+          video: {
+            facingMode: 'environment',
+            width: { ideal: 640 },
+            height: { ideal: 480 }
+          }
+        };
+        navigator.mediaDevices.getUserMedia(constraints)
+          .catch(function(err) {
+            console.log("Failed to get camera with constraints", err);
+          });
+      }
+    });
+  </script>
   </style>
 </head>
 
