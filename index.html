@@ -26,7 +26,7 @@
       const loading = document.getElementById('loading');
       if (loading) loading.style.display = show ? 'block' : 'none';
     }
-    // Add camera constraints for better mobile compatibility
+    // Add camera constraints and handle loading state
     window.addEventListener('load', () => {
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         const constraints = {
@@ -37,8 +37,13 @@
           }
         };
         navigator.mediaDevices.getUserMedia(constraints)
+          .then(() => {
+            // Hide loading once camera is ready
+            showLoading(false);
+          })
           .catch(function(err) {
             console.log("Failed to get camera with constraints", err);
+            showLoading(false);
           });
       }
     });
@@ -153,10 +158,15 @@
           scene.appendChild(marker);
         });
 
-        // Pause and reset all videos at load
+        // Initialize videos but don't load them yet
         document.querySelectorAll('video').forEach(video => {
           video.pause();
           video.currentTime = 0;
+          video.preload = 'none'; // Ensure no preloading
+          // Remove src temporarily to prevent any automatic loading
+          const originalSrc = video.src;
+          video.removeAttribute('src');
+          video.setAttribute('data-src', originalSrc);
         });
       });
     </script>
@@ -164,11 +174,6 @@
 
   <script>
     let currentVideo = null;
-
-    // Hide loading when scene is ready
-    document.querySelector('a-scene').addEventListener('loaded', () => {
-      showLoading(false);
-    });
 
     AFRAME.registerComponent("video-handler", {
       schema: {
@@ -187,6 +192,10 @@
 
         marker.addEventListener("markerFound", () => {
           if (!videoLoaded) {
+            // Restore src and load the video only when first detected
+            if (!videoEl.src && videoEl.getAttribute('data-src')) {
+              videoEl.src = videoEl.getAttribute('data-src');
+            }
             videoEl.load();
             videoLoaded = true;
           }
