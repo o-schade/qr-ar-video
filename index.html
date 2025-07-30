@@ -80,11 +80,11 @@
             debugUIEnabled: false;
             detectionMode: mono;
             patternRatio: 0.75;
-            maxDetectionRate: 15;
+            maxDetectionRate: 30;
             smooth: true;
-            smoothCount: 15;
-            smoothTolerance: 0.001;
-            smoothThreshold: 10;' vr-mode-ui="enabled: false" loading-screen="enabled: false"
+            smoothCount: 20;
+            smoothTolerance: 0.01;
+            smoothThreshold: 2;' vr-mode-ui="enabled: false" loading-screen="enabled: false"
     renderer="antialias: true; logarithmicDepthBuffer: true;">
     <a-entity camera></a-entity>
 
@@ -154,7 +154,7 @@
       const videoSettings = {
         width: 10.80,
         height: 19.20,
-        position: '0 0 0',
+        position: '0 0 -4',
         rotation: '-90 0 0'
       };
 
@@ -210,74 +210,55 @@
       init: function () {
         this.lastPosition = new THREE.Vector3();
         this.lastRotation = new THREE.Euler();
-        this.filterPos = new THREE.Vector3();
-        this.filterRot = new THREE.Euler();
-        this.positionBuffer = [];
-        this.rotationBuffer = [];
-        this.bufferSize = 20; // Number of frames to average
-        this.lerpAmount = 0.08; // Much lower for more stability
-        
-        // Initialize buffers
-        for (let i = 0; i < this.bufferSize; i++) {
-          this.positionBuffer.push(new THREE.Vector3());
-          this.rotationBuffer.push(new THREE.Euler());
-        }
+        this.isInitialized = false;
+        this.lerpAmount = 0.04; // Very low for high stability
       },
       
       tick: function () {
-        if (!this.el.object3D.visible) return;
+        if (!this.el.object3D.visible) {
+          this.isInitialized = false;
+          return;
+        }
         
         const currentPosition = this.el.object3D.position;
         const currentRotation = this.el.object3D.rotation;
         
-        // Add current values to buffer
-        this.positionBuffer.push(currentPosition.clone());
-        this.rotationBuffer.push(new THREE.Euler().copy(currentRotation));
-        
-        // Remove old values
-        if (this.positionBuffer.length > this.bufferSize) {
-          this.positionBuffer.shift();
-          this.rotationBuffer.shift();
+        if (!this.isInitialized) {
+          this.lastPosition.copy(currentPosition);
+          this.lastRotation.copy(currentRotation);
+          this.isInitialized = true;
+          return;
         }
         
-        // Calculate average position
-        const avgPosition = new THREE.Vector3();
-        this.positionBuffer.forEach(pos => avgPosition.add(pos));
-        avgPosition.divideScalar(this.positionBuffer.length);
+        // Calculate deltas
+        const positionDelta = this.lastPosition.distanceTo(currentPosition);
+        const rotationDelta = Math.abs(this.lastRotation.x - currentRotation.x) +
+                            Math.abs(this.lastRotation.y - currentRotation.y) +
+                            Math.abs(this.lastRotation.z - currentRotation.z);
         
-        // Calculate average rotation
-        const avgRotation = new THREE.Euler();
-        const rotSum = { x: 0, y: 0, z: 0 };
-        this.rotationBuffer.forEach(rot => {
-          rotSum.x += rot.x;
-          rotSum.y += rot.y;
-          rotSum.z += rot.z;
-        });
-        avgRotation.set(
-          rotSum.x / this.bufferBuffer.length,
-          rotSum.y / this.bufferBuffer.length,
-          rotSum.z / this.bufferBuffer.length
-        );
+        // Strict thresholds
+        const MAX_POS_DELTA = 0.01;
+        const MAX_ROT_DELTA = 0.01;
         
-        // Apply exponential smoothing
-        this.filterPos.lerpVectors(this.lastPosition, avgPosition, this.lerpAmount);
-        this.filterRot.x = THREE.MathUtils.lerp(this.lastRotation.x, avgRotation.x, this.lerpAmount);
-        this.filterRot.y = THREE.MathUtils.lerp(this.lastRotation.y, avgRotation.y, this.lerpAmount);
-        this.filterRot.z = THREE.MathUtils.lerp(this.lastRotation.z, avgRotation.z, this.lerpAmount);
-        
-        // Only apply changes if they're significant enough
-        const positionDelta = this.filterPos.distanceTo(this.lastPosition);
-        const rotationDelta = Math.abs(this.filterRot.x - this.lastRotation.x) +
-                            Math.abs(this.filterRot.y - this.lastRotation.y) +
-                            Math.abs(this.filterRot.z - this.lastRotation.z);
-                            
-        const MIN_DELTA = 0.001;
-        if (positionDelta > MIN_DELTA || rotationDelta > MIN_DELTA) {
-          this.el.object3D.position.copy(this.filterPos);
-          this.el.object3D.rotation.copy(this.filterRot);
+        if (positionDelta < MAX_POS_DELTA && rotationDelta < MAX_ROT_DELTA) {
+          // Small change - apply smooth lerp
+          this.el.object3D.position.lerp(currentPosition, this.lerpAmount);
           
-          this.lastPosition.copy(this.filterPos);
-          this.lastRotation.copy(this.filterRot);
+          this.el.object3D.rotation.x = THREE.MathUtils.lerp(
+            this.lastRotation.x, currentRotation.x, this.lerpAmount);
+          this.el.object3D.rotation.y = THREE.MathUtils.lerp(
+            this.lastRotation.y, currentRotation.y, this.lerpAmount);
+          this.el.object3D.rotation.z = THREE.MathUtils.lerp(
+            this.lastRotation.z, currentRotation.z, this.lerpAmount);
+        } else {
+          // Large change - probably a tracking jump, ignore it
+          this.el.object3D.position.copy(this.lastPosition);
+          this.el.object3D.rotation.copy(this.lastRotation);
+        }
+        
+        // Store current values
+        this.lastPosition.copy(this.el.object3D.position);
+        this.lastRotation.copy(this.el.object3D.rotation);
         }
       }
     });
