@@ -195,36 +195,43 @@
     // Fixed distance stabilization
     AFRAME.registerComponent('marker-filter', {
       schema: {
-        stabilityFrames: { type: 'number', default: 90 }, // Extremely long stability period
-        lockDistance: { type: 'number', default: 3 }, // Closer fixed distance for small marker
-        minStableFrames: { type: 'number', default: 10 } // Minimum frames before considering marker lost
+        stabilityFrames: { type: 'number', default: 150 }, // 5 seconds at 30fps
+        lockDistance: { type: 'number', default: 3 }, // Fixed distance from camera
+        minStableFrames: { type: 'number', default: 60 }, // 2 seconds before reset
+        movementThreshold: { type: 'number', default: 2.0 } // Enormous dead zone
       },
 
       init: function () {
         this.stablePosition = new THREE.Vector3();
         this.positionBuffer = [];
-        this.bufferSize = 45; // Huge stability buffer
+        this.bufferSize = 90; // 3 seconds of frames
         this.stableFrameCount = 0;
         this.isLocked = false;
         this.invisibleFrames = 0;
-        this.lastVisiblePosition = new THREE.Vector3();
+        this.lastPosition = new THREE.Vector3();
+        this.frameCount = 0;
+        this.lastUpdateTime = 0;
         
-        // Initialize position buffer
+        // Initialize buffer
         for (let i = 0; i < this.bufferSize; i++) {
           this.positionBuffer.push(new THREE.Vector3());
         }
       },
 
       checkStability: function(currentPos) {
+        // Only check every 4 frames to allow natural hand movement
+        if (this.frameCount % 4 !== 0) return false;
+        
         // Update buffer
         this.positionBuffer.shift();
         this.positionBuffer.push(currentPos.clone());
         
-        // Check for absolute stability
-        const threshold = 0.005; // Ultra-tiny movement threshold
+        // Check for stability with massive threshold
+        const threshold = 1.0; // Extremely large stability threshold
         for (let i = 1; i < this.bufferSize; i++) {
-          if (Math.abs(this.positionBuffer[i].x - this.positionBuffer[0].x) > threshold ||
-              Math.abs(this.positionBuffer[i].y - this.positionBuffer[0].y) > threshold) {
+          const dx = Math.abs(this.positionBuffer[i].x - this.positionBuffer[0].x);
+          const dy = Math.abs(this.positionBuffer[i].y - this.positionBuffer[0].y);
+          if (dx > threshold || dy > threshold) {
             return false;
           }
         }
@@ -232,9 +239,11 @@
       },
       
       tick: function () {
+        this.frameCount++;
+
         if (!this.el.object3D.visible) {
           this.invisibleFrames++;
-          // Only reset lock if marker has been invisible for many frames
+          // Only reset after significant invisibility
           if (this.invisibleFrames > this.data.minStableFrames) {
             this.stableFrameCount = 0;
             this.isLocked = false;
@@ -250,37 +259,68 @@
         const currentPosition = this.el.object3D.position;
 
         if (!this.isLocked) {
-          // Strict stability check period
-          if (this.checkStability(currentPosition)) {
-            this.stableFrameCount++;
-            
-            if (this.stableFrameCount >= this.data.stabilityFrames) {
-              // Lock position with fixed distance
-              const avgX = this.positionBuffer.reduce((sum, pos) => sum + pos.x, 0) / this.bufferSize;
-              const avgY = this.positionBuffer.reduce((sum, pos) => sum + pos.y, 0) / this.bufferSize;
+          // Only update every 4 frames while seeking stability
+          if (this.frameCount % 4 === 0) {
+            if (this.checkStability(currentPosition)) {
+              this.stableFrameCount++;
               
-              // Round to prevent micro-movements
-              this.stablePosition.set(
-                Math.round(avgX * 200) / 200,
-                Math.round(avgY * 200) / 200,
-                -this.data.lockDistance
-              );
-              this.isLocked = true;
+              if (this.stableFrameCount >= this.data.stabilityFrames) {
+                // Use heavily rounded average position for extra stability
+                let avgX = 0, avgY = 0;
+                
+                // Take middle 30% of samples to avoid outliers
+                const start = Math.floor(this.bufferSize * 0.35);
+                const end = Math.floor(this.bufferSize * 0.65);
+                for (let i = start; i < end; i++) {
+                  avgX += this.positionBuffer[i].x;
+                  avgY += this.positionBuffer[i].y;
+                }
+                
+                avgX /= (end - start);
+                avgY /= (end - start);
+                
+                // Extreme rounding to prevent any micro-movements
+                this.stablePosition.set(
+                  Math.round(avgX * 2) / 2, // Round to nearest 0.5
+                  Math.round(avgY * 2) / 2,
+                  -this.data.lockDistance
+                );
+                this.lastPosition.copy(this.stablePosition);
+                this.isLocked = true;
+                this.lastUpdateTime = this.frameCount;
+              }
+            } else {
+              this.stableFrameCount = 0;
             }
-          } else {
-            // Reset on any movement
-            this.stableFrameCount = 0;
           }
           
-          // Use exact fixed distance while waiting for lock
+          // Use current position with fixed distance while waiting
           this.el.object3D.position.copy(currentPosition);
           this.el.object3D.position.z = -this.data.lockDistance;
         } else {
-          // When locked, use absolute fixed position, no exceptions
+          // Only check for movement every 60 frames (2 seconds)
+          if (this.frameCount - this.lastUpdateTime >= 60) {
+            const dx = Math.abs(currentPosition.x - this.lastPosition.x);
+            const dy = Math.abs(currentPosition.y - this.lastPosition.y);
+            
+            // Only update if movement is massive
+            if (dx > this.data.movementThreshold || dy > this.data.movementThreshold) {
+              // Super aggressive rounding
+              this.stablePosition.set(
+                Math.round(currentPosition.x * 2) / 2, // Round to nearest 0.5
+                Math.round(currentPosition.y * 2) / 2,
+                -this.data.lockDistance
+              );
+              this.lastPosition.copy(this.stablePosition);
+              this.lastUpdateTime = this.frameCount;
+            }
+          }
+          
+          // Use absolutely locked position
           this.el.object3D.position.copy(this.stablePosition);
         }
 
-        // Absolutely fixed rotation
+        // Completely fixed rotation
         this.el.object3D.rotation.set(THREE.MathUtils.degToRad(-90), 0, 0);
       }
     });
