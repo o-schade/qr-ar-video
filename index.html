@@ -80,11 +80,11 @@
             debugUIEnabled: false;
             detectionMode: mono;
             patternRatio: 0.75;
-            maxDetectionRate: 30;
+            maxDetectionRate: 25;
             smooth: true;
-            smoothCount: 5;
-            smoothTolerance: 0.01;
-            smoothThreshold: 2;' vr-mode-ui="enabled: false" loading-screen="enabled: false"
+            smoothCount: 10;
+            smoothTolerance: 0.005;
+            smoothThreshold: 5;' vr-mode-ui="enabled: false" loading-screen="enabled: false"
     renderer="antialias: true; logarithmicDepthBuffer: true;">
     <a-entity camera></a-entity>
 
@@ -168,9 +168,12 @@
           marker.setAttribute('id', `marker-${config.id}`);
           marker.setAttribute('video-handler', `videoId: ${config.id}`);
           marker.setAttribute('smooth', 'true');
-          marker.setAttribute('smoothCount', '5');
-          marker.setAttribute('smoothTolerance', '0.01');
-          marker.setAttribute('smoothThreshold', '2');
+          marker.setAttribute('smoothCount', '10');
+          marker.setAttribute('smoothTolerance', '0.005');
+          marker.setAttribute('smoothThreshold', '5');
+          // Add additional stabilization to the marker
+          marker.setAttribute('emitevents', 'true');
+          marker.setAttribute('marker-filter', '');
 
           const video = document.createElement('a-video');
           video.setAttribute('id', `ar-${config.id}`);
@@ -201,6 +204,42 @@
 
   <script>
     let currentVideo = null;
+
+    // Register a filter component for extra stabilization
+    AFRAME.registerComponent('marker-filter', {
+      init: function () {
+        this.lastPosition = new THREE.Vector3();
+        this.lastRotation = new THREE.Euler();
+        this.filterPos = new THREE.Vector3();
+        this.filterRot = new THREE.Euler();
+        this.lerpAmount = 0.2; // Lower = more stable but slower to update
+      },
+      
+      tick: function () {
+        if (!this.el.object3D.visible) return;
+        
+        // Get current position and rotation
+        const currentPosition = this.el.object3D.position;
+        const currentRotation = this.el.object3D.rotation;
+        
+        // Lerp between last known good position and current
+        this.filterPos.lerpVectors(this.lastPosition, currentPosition, this.lerpAmount);
+        
+        // Apply filtered position
+        this.el.object3D.position.copy(this.filterPos);
+        
+        // Store last position
+        this.lastPosition.copy(this.filterPos);
+        
+        // Handle rotation similarly
+        this.filterRot.x = THREE.MathUtils.lerp(this.lastRotation.x, currentRotation.x, this.lerpAmount);
+        this.filterRot.y = THREE.MathUtils.lerp(this.lastRotation.y, currentRotation.y, this.lerpAmount);
+        this.filterRot.z = THREE.MathUtils.lerp(this.lastRotation.z, currentRotation.z, this.lerpAmount);
+        
+        this.el.object3D.rotation.copy(this.filterRot);
+        this.lastRotation.copy(this.filterRot);
+      }
+    });
 
     AFRAME.registerComponent("video-handler", {
       schema: {
