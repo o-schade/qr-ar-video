@@ -70,21 +70,16 @@
       }
     });
   </script>
-  </style>
 </head>
 
 <body style="margin: 0; overflow: hidden;">
   <div id="loading">Loading AR Experience...</div>
   <a-scene embedded arjs='sourceType: webcam; 
             trackingMethod: best;
-            debugUIEnabled: false;
+            debugUIEnabled: true;
             detectionMode: mono;
             patternRatio: 0.75;
-            maxDetectionRate: 30;
-            smooth: true;
-            smoothCount: 20;
-            smoothTolerance: 0.01;
-            smoothThreshold: 2;' vr-mode-ui="enabled: false" loading-screen="enabled: false"
+            maxDetectionRate: 30;' vr-mode-ui="enabled: false" loading-screen="enabled: false"
     renderer="antialias: true; logarithmicDepthBuffer: true;">
     <a-entity camera></a-entity>
 
@@ -167,13 +162,7 @@
           marker.setAttribute('url', config.pattern);
           marker.setAttribute('id', `marker-${config.id}`);
           marker.setAttribute('video-handler', `videoId: ${config.id}`);
-          marker.setAttribute('smooth', 'true');
-          marker.setAttribute('smoothCount', '10');
-          marker.setAttribute('smoothTolerance', '0.005');
-          marker.setAttribute('smoothThreshold', '5');
-          // Add additional stabilization to the marker
           marker.setAttribute('emitevents', 'true');
-          marker.setAttribute('marker-filter', '');
 
           const video = document.createElement('a-video');
           video.setAttribute('id', `ar-${config.id}`);
@@ -203,65 +192,82 @@
   </a-scene>
 
   <script>
-    let currentVideo = null;
-
-    // Register a filter component for extra stabilization
+    // Fixed distance stabilization
     AFRAME.registerComponent('marker-filter', {
+      schema: {
+        smoothingPosition: { type: 'number', default: 0.85 },
+        smoothingRotation: { type: 'number', default: 0.85 },
+        smoothingNear: { type: 'number', default: 0.95 },
+        smoothingFar: { type: 'number', default: 0.7 },
+        minDistance: { type: 'number', default: 1 },
+        maxDistance: { type: 'number', default: 8 }
+      },
+
       init: function () {
         this.lastPosition = new THREE.Vector3();
         this.lastRotation = new THREE.Euler();
+        this.smoothedPosition = new THREE.Vector3();
+        this.smoothedRotation = new THREE.Euler();
+        this.tempPosition = new THREE.Vector3();
+        this.tempRotation = new THREE.Euler();
         this.isInitialized = false;
-        this.lerpAmount = 0.04; // Very low for high stability
+        this.frames = 0;
       },
       
       tick: function () {
         if (!this.el.object3D.visible) {
-          this.isInitialized = false;
+          if (this.frames > 0) {
+            this.frames = 0;
+            this.isInitialized = false;
+          }
           return;
         }
-        
+
         const currentPosition = this.el.object3D.position;
         const currentRotation = this.el.object3D.rotation;
         
         if (!this.isInitialized) {
+          this.smoothedPosition.copy(currentPosition);
           this.lastPosition.copy(currentPosition);
-          this.lastRotation.copy(currentRotation);
+          this.smoothedRotation.set(THREE.MathUtils.degToRad(-90), 0, 0);
+          this.lastRotation.copy(this.smoothedRotation);
           this.isInitialized = true;
           return;
         }
+
+        this.frames++;
         
-        // Calculate deltas
-        const positionDelta = this.lastPosition.distanceTo(currentPosition);
-        const rotationDelta = Math.abs(this.lastRotation.x - currentRotation.x) +
-                            Math.abs(this.lastRotation.y - currentRotation.y) +
-                            Math.abs(this.lastRotation.z - currentRotation.z);
+        // Calculate distance-based smoothing
+        const distance = currentPosition.length();
+        const smoothingFactor = THREE.MathUtils.lerp(
+          this.data.smoothingNear,
+          this.data.smoothingFar,
+          THREE.MathUtils.clamp((distance - this.data.minDistance) / (this.data.maxDistance - this.data.minDistance), 0, 1)
+        );
+
+        // Position smoothing with exponential filter
+        this.tempPosition.copy(currentPosition);
+        this.smoothedPosition.lerp(this.tempPosition, 1 - smoothingFactor);
         
-        // Strict thresholds
-        const MAX_POS_DELTA = 0.01;
-        const MAX_ROT_DELTA = 0.01;
-        
-        if (positionDelta < MAX_POS_DELTA && rotationDelta < MAX_ROT_DELTA) {
-          // Small change - apply smooth lerp
-          this.el.object3D.position.lerp(currentPosition, this.lerpAmount);
-          
-          this.el.object3D.rotation.x = THREE.MathUtils.lerp(
-            this.lastRotation.x, currentRotation.x, this.lerpAmount);
-          this.el.object3D.rotation.y = THREE.MathUtils.lerp(
-            this.lastRotation.y, currentRotation.y, this.lerpAmount);
-          this.el.object3D.rotation.z = THREE.MathUtils.lerp(
-            this.lastRotation.z, currentRotation.z, this.lerpAmount);
-        } else {
-          // Large change - probably a tracking jump, ignore it
-          this.el.object3D.position.copy(this.lastPosition);
-          this.el.object3D.rotation.copy(this.lastRotation);
+        // Apply smoothed position with distance limits
+        const smoothedDistance = this.smoothedPosition.length();
+        if (smoothedDistance > this.data.maxDistance || smoothedDistance < this.data.minDistance) {
+          this.smoothedPosition.normalize().multiplyScalar(
+            THREE.MathUtils.clamp(smoothedDistance, this.data.minDistance, this.data.maxDistance)
+          );
         }
         
-        // Store current values
-        this.lastPosition.copy(this.el.object3D.position);
-        this.lastRotation.copy(this.el.object3D.rotation);
-        }
+        // Apply smoothed transformations
+        this.el.object3D.position.copy(this.smoothedPosition);
+        this.el.object3D.rotation.set(THREE.MathUtils.degToRad(-90), 0, 0);
+
+        // Save last values
+        this.lastPosition.copy(this.smoothedPosition);
+        this.lastRotation.copy(this.smoothedRotation);
       }
     });
+
+    let currentVideo = null;
 
     AFRAME.registerComponent("video-handler", {
       schema: {
