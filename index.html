@@ -193,79 +193,91 @@
   </a-scene>
 
   <script>
-    // World matrix stabilization
+    // Ultra-rigid stabilization for small markers
     AFRAME.registerComponent('stabilizer', {
+      schema: {
+        quantize: { default: 0.25 }, // Snap to 0.25 unit grid
+        lockDelay: { default: 30 }   // Frames to wait before locking
+      },
+
       init: function() {
-        this.worldMatrix = new THREE.Matrix4();
-        this.stableMatrix = new THREE.Matrix4();
-        this.isStable = false;
-        this.stablePosition = new THREE.Vector3();
-        this.stableQuaternion = new THREE.Quaternion();
-        this.stableScale = new THREE.Vector3();
-        this.tempPosition = new THREE.Vector3();
-        this.tempQuaternion = new THREE.Quaternion();
-        this.tempScale = new THREE.Vector3();
-        this.stabilityCount = 0;
-        this.requiredStability = 90; // 3 seconds at 30fps
-        this.movementThreshold = 0.001; // Very small movement threshold
+        this.lockedPosition = new THREE.Vector3();
+        this.lockedRotation = new THREE.Euler();
+        this.isLocked = false;
+        this.visibleFrames = 0;
+        this.sampleBuffer = [];
+        this.bufferSize = 10; // Keep last 10 positions for averaging
+      },
+
+      quantizeValue: function(value) {
+        return Math.round(value / this.data.quantize) * this.data.quantize;
       },
 
       tick: function() {
         if (!this.el.object3D.visible) {
-          this.stabilityCount = 0;
-          this.isStable = false;
+          // Reset completely if marker lost
+          this.isLocked = false;
+          this.visibleFrames = 0;
+          this.sampleBuffer = [];
           return;
         }
 
-        // Get current world matrix
-        this.el.object3D.updateMatrixWorld();
-        this.worldMatrix.copy(this.el.object3D.matrixWorld);
-        
-        // Decompose current matrix
-        this.worldMatrix.decompose(this.tempPosition, this.tempQuaternion, this.tempScale);
+        if (!this.isLocked) {
+          // Add current position to sample buffer
+          if (this.sampleBuffer.length >= this.bufferSize) {
+            this.sampleBuffer.shift();
+          }
+          this.sampleBuffer.push({
+            position: this.el.object3D.position.clone(),
+            rotation: this.el.object3D.rotation.clone()
+          });
 
-        if (!this.isStable) {
-          if (this.stabilityCount === 0) {
-            // Initialize stable position
-            this.stableMatrix.copy(this.worldMatrix);
-            this.stableMatrix.decompose(this.stablePosition, this.stableQuaternion, this.stableScale);
-            this.stabilityCount++;
-          } else {
-            // Check if current position is close to stable position
-            const dx = Math.abs(this.tempPosition.x - this.stablePosition.x);
-            const dy = Math.abs(this.tempPosition.y - this.stablePosition.y);
-            const dz = Math.abs(this.tempPosition.z - this.stablePosition.z);
+          this.visibleFrames++;
+
+          // After collecting enough samples and delay frames, establish locked position
+          if (this.visibleFrames >= this.data.lockDelay && this.sampleBuffer.length >= this.bufferSize) {
+            // Calculate average position
+            const avgPos = new THREE.Vector3();
+            const avgRot = new THREE.Euler();
             
-            if (dx < this.movementThreshold && dy < this.movementThreshold && dz < this.movementThreshold) {
-              this.stabilityCount++;
-              if (this.stabilityCount >= this.requiredStability) {
-                this.isStable = true;
-              }
-            } else {
-              // Reset stability if moved too much
-              this.stabilityCount = 0;
-              this.stableMatrix.copy(this.worldMatrix);
-              this.stableMatrix.decompose(this.stablePosition, this.stableQuaternion, this.stableScale);
-            }
+            this.sampleBuffer.forEach(sample => {
+              avgPos.add(sample.position);
+              avgRot.x += sample.rotation.x;
+              avgRot.y += sample.rotation.y;
+              avgRot.z += sample.rotation.z;
+            });
+            
+            avgPos.divideScalar(this.sampleBuffer.length);
+            avgRot.x /= this.sampleBuffer.length;
+            avgRot.y /= this.sampleBuffer.length;
+            avgRot.z /= this.sampleBuffer.length;
+
+            // Quantize to snap to grid
+            this.lockedPosition.set(
+              this.quantizeValue(avgPos.x),
+              this.quantizeValue(avgPos.y),
+              this.quantizeValue(avgPos.z)
+            );
+            
+            // Lock rotation to perfectly vertical
+            this.lockedRotation.set(THREE.MathUtils.degToRad(-90), 0, 0);
+            
+            this.isLocked = true;
           }
-          // Use current position while waiting for stability
-          this.el.object3D.matrix.copy(this.worldMatrix);
+
+          // While collecting samples, use heavily quantized current position
+          this.el.object3D.position.set(
+            this.quantizeValue(this.el.object3D.position.x),
+            this.quantizeValue(this.el.object3D.position.y),
+            this.quantizeValue(this.el.object3D.position.z)
+          );
         } else {
-          // Check if we've moved far from stable position
-          const dx = Math.abs(this.tempPosition.x - this.stablePosition.x);
-          const dy = Math.abs(this.tempPosition.y - this.stablePosition.y);
-          const dz = Math.abs(this.tempPosition.z - this.stablePosition.z);
-          
-          if (dx > 0.5 || dy > 0.5 || dz > 0.5) {
-            // If moved significantly, update stable position
-            this.stableMatrix.copy(this.worldMatrix);
-            this.stableMatrix.decompose(this.stablePosition, this.stableQuaternion, this.stableScale);
-          }
-          
-          // Use stable matrix
-          this.el.object3D.matrix.copy(this.stableMatrix);
-          this.el.object3D.matrix.decompose(this.el.object3D.position, this.el.object3D.quaternion, this.el.object3D.scale);
+          // Once locked, position is completely fixed
+          this.el.object3D.position.copy(this.lockedPosition);
         }
+
+        // Always keep rotation locked
+        this.el.object3D.rotation.copy(this.lockedRotation);
       }
     });
 
