@@ -195,75 +195,93 @@
     // Fixed distance stabilization
     AFRAME.registerComponent('marker-filter', {
       schema: {
-        smoothingPosition: { type: 'number', default: 0.85 },
-        smoothingRotation: { type: 'number', default: 0.85 },
-        smoothingNear: { type: 'number', default: 0.95 },
-        smoothingFar: { type: 'number', default: 0.7 },
-        minDistance: { type: 'number', default: 1 },
-        maxDistance: { type: 'number', default: 8 }
+        stabilityFrames: { type: 'number', default: 90 }, // Extremely long stability period
+        lockDistance: { type: 'number', default: 3 }, // Closer fixed distance for small marker
+        minStableFrames: { type: 'number', default: 10 } // Minimum frames before considering marker lost
       },
 
       init: function () {
-        this.lastPosition = new THREE.Vector3();
-        this.lastRotation = new THREE.Euler();
-        this.smoothedPosition = new THREE.Vector3();
-        this.smoothedRotation = new THREE.Euler();
-        this.tempPosition = new THREE.Vector3();
-        this.tempRotation = new THREE.Euler();
-        this.isInitialized = false;
-        this.frames = 0;
+        this.stablePosition = new THREE.Vector3();
+        this.positionBuffer = [];
+        this.bufferSize = 45; // Huge stability buffer
+        this.stableFrameCount = 0;
+        this.isLocked = false;
+        this.invisibleFrames = 0;
+        this.lastVisiblePosition = new THREE.Vector3();
+        
+        // Initialize position buffer
+        for (let i = 0; i < this.bufferSize; i++) {
+          this.positionBuffer.push(new THREE.Vector3());
+        }
+      },
+
+      checkStability: function(currentPos) {
+        // Update buffer
+        this.positionBuffer.shift();
+        this.positionBuffer.push(currentPos.clone());
+        
+        // Check for absolute stability
+        const threshold = 0.005; // Ultra-tiny movement threshold
+        for (let i = 1; i < this.bufferSize; i++) {
+          if (Math.abs(this.positionBuffer[i].x - this.positionBuffer[0].x) > threshold ||
+              Math.abs(this.positionBuffer[i].y - this.positionBuffer[0].y) > threshold) {
+            return false;
+          }
+        }
+        return true;
       },
       
       tick: function () {
         if (!this.el.object3D.visible) {
-          if (this.frames > 0) {
-            this.frames = 0;
-            this.isInitialized = false;
+          this.invisibleFrames++;
+          // Only reset lock if marker has been invisible for many frames
+          if (this.invisibleFrames > this.data.minStableFrames) {
+            this.stableFrameCount = 0;
+            this.isLocked = false;
+            // Clear buffer
+            for (let i = 0; i < this.bufferSize; i++) {
+              this.positionBuffer[i].set(0, 0, 0);
+            }
           }
           return;
         }
 
+        this.invisibleFrames = 0;
         const currentPosition = this.el.object3D.position;
-        const currentRotation = this.el.object3D.rotation;
-        
-        if (!this.isInitialized) {
-          this.smoothedPosition.copy(currentPosition);
-          this.lastPosition.copy(currentPosition);
-          this.smoothedRotation.set(THREE.MathUtils.degToRad(-90), 0, 0);
-          this.lastRotation.copy(this.smoothedRotation);
-          this.isInitialized = true;
-          return;
+
+        if (!this.isLocked) {
+          // Strict stability check period
+          if (this.checkStability(currentPosition)) {
+            this.stableFrameCount++;
+            
+            if (this.stableFrameCount >= this.data.stabilityFrames) {
+              // Lock position with fixed distance
+              const avgX = this.positionBuffer.reduce((sum, pos) => sum + pos.x, 0) / this.bufferSize;
+              const avgY = this.positionBuffer.reduce((sum, pos) => sum + pos.y, 0) / this.bufferSize;
+              
+              // Round to prevent micro-movements
+              this.stablePosition.set(
+                Math.round(avgX * 200) / 200,
+                Math.round(avgY * 200) / 200,
+                -this.data.lockDistance
+              );
+              this.isLocked = true;
+            }
+          } else {
+            // Reset on any movement
+            this.stableFrameCount = 0;
+          }
+          
+          // Use exact fixed distance while waiting for lock
+          this.el.object3D.position.copy(currentPosition);
+          this.el.object3D.position.z = -this.data.lockDistance;
+        } else {
+          // When locked, use absolute fixed position, no exceptions
+          this.el.object3D.position.copy(this.stablePosition);
         }
 
-        this.frames++;
-        
-        // Calculate distance-based smoothing
-        const distance = currentPosition.length();
-        const smoothingFactor = THREE.MathUtils.lerp(
-          this.data.smoothingNear,
-          this.data.smoothingFar,
-          THREE.MathUtils.clamp((distance - this.data.minDistance) / (this.data.maxDistance - this.data.minDistance), 0, 1)
-        );
-
-        // Position smoothing with exponential filter
-        this.tempPosition.copy(currentPosition);
-        this.smoothedPosition.lerp(this.tempPosition, 1 - smoothingFactor);
-        
-        // Apply smoothed position with distance limits
-        const smoothedDistance = this.smoothedPosition.length();
-        if (smoothedDistance > this.data.maxDistance || smoothedDistance < this.data.minDistance) {
-          this.smoothedPosition.normalize().multiplyScalar(
-            THREE.MathUtils.clamp(smoothedDistance, this.data.minDistance, this.data.maxDistance)
-          );
-        }
-        
-        // Apply smoothed transformations
-        this.el.object3D.position.copy(this.smoothedPosition);
+        // Absolutely fixed rotation
         this.el.object3D.rotation.set(THREE.MathUtils.degToRad(-90), 0, 0);
-
-        // Save last values
-        this.lastPosition.copy(this.smoothedPosition);
-        this.lastRotation.copy(this.smoothedRotation);
       }
     });
 
