@@ -78,10 +78,13 @@
   <a-scene embedded arjs='sourceType: webcam; 
             trackingMethod: best;
             debugUIEnabled: false;
-            detectionMode: mono_and_matrix;
-            matrixCodeType: 3x3;
+            detectionMode: mono;
             patternRatio: 0.75;
-            maxDetectionRate: 60;' vr-mode-ui="enabled: false" loading-screen="enabled: false"
+            maxDetectionRate: 30;
+            smooth: true;
+            smoothCount: 5;
+            smoothTolerance: 0.01;
+            smoothThreshold: 2;' vr-mode-ui="enabled: false" loading-screen="enabled: false"
     renderer="antialias: true; logarithmicDepthBuffer: true;">
     <a-entity camera></a-entity>
 
@@ -165,9 +168,9 @@
           marker.setAttribute('id', `marker-${config.id}`);
           marker.setAttribute('video-handler', `videoId: ${config.id}`);
           marker.setAttribute('smooth', 'true');
-          marker.setAttribute('smoothCount', '1');
-          marker.setAttribute('smoothTolerance', '.05');
-          marker.setAttribute('smoothThreshold', '1');
+          marker.setAttribute('smoothCount', '5');
+          marker.setAttribute('smoothTolerance', '0.01');
+          marker.setAttribute('smoothThreshold', '2');
 
           const video = document.createElement('a-video');
           video.setAttribute('id', `ar-${config.id}`);
