@@ -40,6 +40,20 @@
           .then(() => {
             // Hide loading once camera is ready
             showLoading(false);
+            
+            // Start preloading videos in background after camera is ready
+            setTimeout(() => {
+              document.querySelectorAll('video').forEach(video => {
+                const dataSrc = video.getAttribute('data-src');
+                if (dataSrc) {
+                  const preloadLink = document.createElement('link');
+                  preloadLink.rel = 'preload';
+                  preloadLink.as = 'video';
+                  preloadLink.href = dataSrc;
+                  document.head.appendChild(preloadLink);
+                }
+              });
+            }, 1000);
           })
           .catch(function(err) {
             console.log("Failed to get camera with constraints", err);
@@ -56,8 +70,10 @@
   <a-scene embedded arjs='sourceType: webcam; 
             trackingMethod: best;
             debugUIEnabled: false;
-            detectionMode: mono;
-            patternRatio: 0.75;' vr-mode-ui="enabled: false" loading-screen="enabled: false"
+            detectionMode: mono_and_matrix;
+            matrixCodeType: 3x3;
+            patternRatio: 0.75;
+            maxDetectionRate: 60;' vr-mode-ui="enabled: false" loading-screen="enabled: false"
     renderer="antialias: true; logarithmicDepthBuffer: true;">
     <a-entity camera></a-entity>
 
@@ -141,9 +157,9 @@
           marker.setAttribute('id', `marker-${config.id}`);
           marker.setAttribute('video-handler', `videoId: ${config.id}`);
           marker.setAttribute('smooth', 'true');
-          marker.setAttribute('smoothCount', '2');
-          marker.setAttribute('smoothTolerance', '.01');
-          marker.setAttribute('smoothThreshold', '2');
+          marker.setAttribute('smoothCount', '1');
+          marker.setAttribute('smoothTolerance', '.05');
+          marker.setAttribute('smoothThreshold', '1');
 
           const video = document.createElement('a-video');
           video.setAttribute('id', `ar-${config.id}`);
