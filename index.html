@@ -162,7 +162,7 @@
           marker.setAttribute('url', config.pattern);
           marker.setAttribute('id', `marker-${config.id}`);
           marker.setAttribute('video-handler', `videoId: ${config.id}`);
-          marker.setAttribute('marker-filter', '');
+          marker.setAttribute('stabilizer', '');
           marker.setAttribute('emitevents', 'true');
 
           const video = document.createElement('a-video');
@@ -174,7 +174,7 @@
           video.setAttribute('rotation', videoSettings.rotation);
           video.setAttribute('visible', 'false');
 
-          marker.appendChild(video);
+          marker.appendChild(video)
           scene.appendChild(marker);
         });
 
@@ -193,60 +193,79 @@
   </a-scene>
 
   <script>
-    // Immediate position locking with minimal drift
-    AFRAME.registerComponent('marker-filter', {
-      schema: {
-        lockDistance: { type: 'number', default: 3 }, // Fixed distance from camera
-        driftThreshold: { type: 'number', default: 0.01 } // Extremely small drift allowance
+    // World matrix stabilization
+    AFRAME.registerComponent('stabilizer', {
+      init: function() {
+        this.worldMatrix = new THREE.Matrix4();
+        this.stableMatrix = new THREE.Matrix4();
+        this.isStable = false;
+        this.stablePosition = new THREE.Vector3();
+        this.stableQuaternion = new THREE.Quaternion();
+        this.stableScale = new THREE.Vector3();
+        this.tempPosition = new THREE.Vector3();
+        this.tempQuaternion = new THREE.Quaternion();
+        this.tempScale = new THREE.Vector3();
+        this.stabilityCount = 0;
+        this.requiredStability = 90; // 3 seconds at 30fps
+        this.movementThreshold = 0.001; // Very small movement threshold
       },
 
-      init: function () {
-        this.isFirstPosition = true;
-        this.lockedPosition = new THREE.Vector3();
-        this.tempPosition = new THREE.Vector3();
-        this.smoothDrift = new THREE.Vector3();
-        this.lastVisibleTime = 0;
-      },
-      
-      tick: function () {
+      tick: function() {
         if (!this.el.object3D.visible) {
-          // If invisible for more than 1 second, reset
-          if (Date.now() - this.lastVisibleTime > 1000) {
-            this.isFirstPosition = true;
-          }
+          this.stabilityCount = 0;
+          this.isStable = false;
           return;
         }
 
-        this.lastVisibleTime = Date.now();
-        const currentPosition = this.el.object3D.position;
+        // Get current world matrix
+        this.el.object3D.updateMatrixWorld();
+        this.worldMatrix.copy(this.el.object3D.matrixWorld);
+        
+        // Decompose current matrix
+        this.worldMatrix.decompose(this.tempPosition, this.tempQuaternion, this.tempScale);
 
-        if (this.isFirstPosition) {
-          // Lock position immediately on first sight
-          this.lockedPosition.copy(currentPosition);
-          this.lockedPosition.z = -this.data.lockDistance;
-          this.isFirstPosition = false;
-          this.el.object3D.position.copy(this.lockedPosition);
+        if (!this.isStable) {
+          if (this.stabilityCount === 0) {
+            // Initialize stable position
+            this.stableMatrix.copy(this.worldMatrix);
+            this.stableMatrix.decompose(this.stablePosition, this.stableQuaternion, this.stableScale);
+            this.stabilityCount++;
+          } else {
+            // Check if current position is close to stable position
+            const dx = Math.abs(this.tempPosition.x - this.stablePosition.x);
+            const dy = Math.abs(this.tempPosition.y - this.stablePosition.y);
+            const dz = Math.abs(this.tempPosition.z - this.stablePosition.z);
+            
+            if (dx < this.movementThreshold && dy < this.movementThreshold && dz < this.movementThreshold) {
+              this.stabilityCount++;
+              if (this.stabilityCount >= this.requiredStability) {
+                this.isStable = true;
+              }
+            } else {
+              // Reset stability if moved too much
+              this.stabilityCount = 0;
+              this.stableMatrix.copy(this.worldMatrix);
+              this.stableMatrix.decompose(this.stablePosition, this.stableQuaternion, this.stableScale);
+            }
+          }
+          // Use current position while waiting for stability
+          this.el.object3D.matrix.copy(this.worldMatrix);
         } else {
-          // Calculate potential drift
-          this.tempPosition.copy(currentPosition);
-          this.tempPosition.z = -this.data.lockDistance;
+          // Check if we've moved far from stable position
+          const dx = Math.abs(this.tempPosition.x - this.stablePosition.x);
+          const dy = Math.abs(this.tempPosition.y - this.stablePosition.y);
+          const dz = Math.abs(this.tempPosition.z - this.stablePosition.z);
           
-          // Super smooth drift with extremely tight bounds
-          this.smoothDrift.x = Math.sign(this.tempPosition.x - this.lockedPosition.x) * 
-                              Math.min(Math.abs(this.tempPosition.x - this.lockedPosition.x), this.data.driftThreshold);
-          this.smoothDrift.y = Math.sign(this.tempPosition.y - this.lockedPosition.y) * 
-                              Math.min(Math.abs(this.tempPosition.y - this.lockedPosition.y), this.data.driftThreshold);
+          if (dx > 0.5 || dy > 0.5 || dz > 0.5) {
+            // If moved significantly, update stable position
+            this.stableMatrix.copy(this.worldMatrix);
+            this.stableMatrix.decompose(this.stablePosition, this.stableQuaternion, this.stableScale);
+          }
           
-          // Apply minimal drift to locked position
-          this.lockedPosition.x += this.smoothDrift.x * 0.01; // 1% drift per frame
-          this.lockedPosition.y += this.smoothDrift.y * 0.01;
-          
-          // Use locked position
-          this.el.object3D.position.copy(this.lockedPosition);
+          // Use stable matrix
+          this.el.object3D.matrix.copy(this.stableMatrix);
+          this.el.object3D.matrix.decompose(this.el.object3D.position, this.el.object3D.quaternion, this.el.object3D.scale);
         }
-
-        // Always vertical
-        this.el.object3D.rotation.set(THREE.MathUtils.degToRad(-90), 0, 0);
       }
     });
 
@@ -268,8 +287,8 @@
         });
 
         marker.addEventListener("markerFound", () => {
+
           if (!videoLoaded) {
-            // Restore src and load the video only when first detected
             if (!videoEl.src && videoEl.getAttribute('data-src')) {
               videoEl.src = videoEl.getAttribute('data-src');
             }
@@ -291,8 +310,6 @@
         });
 
         marker.addEventListener("markerLost", () => {
-          arVideo.setAttribute("visible", false);
-          videoEl.pause();
         });
       },
     });
