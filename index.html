@@ -22,17 +22,19 @@
     }
     #playButton {
       position: fixed;
-      bottom: 20px;
-      right: 20px;
-      width: 60px;
-      height: 60px;
-      background: rgba(0,0,0,0.7);
-      border: none;
+      bottom: 40px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 120px;
+      height: 120px;
+      background: rgba(0,0,0,0.8);
+      border: 3px solid white;
       border-radius: 50%;
       display: none;
       z-index: 9999;
       cursor: pointer;
       padding: 0;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
     }
     #playButton::before {
       content: '';
@@ -43,12 +45,12 @@
       width: 0;
       height: 0;
       border-style: solid;
-      border-width: 15px 0 15px 25px;
+      border-width: 30px 0 30px 50px;
       border-color: transparent transparent transparent white;
     }
     #playButton.playing::before {
-      width: 25px;
-      height: 25px;
+      width: 45px;
+      height: 45px;
       border: none;
       background: white;
     }
@@ -109,7 +111,7 @@
   <button id="playButton" aria-label="Play/Pause Video"></button>
   <a-scene embedded arjs='sourceType: webcam; 
             trackingMethod: best;
-            debugUIEnabled: true;
+            debugUIEnabled: false;
             detectionMode: mono;
             patternRatio: 0.75;
             maxDetectionRate: 30;' vr-mode-ui="enabled: false" loading-screen="enabled: false"
