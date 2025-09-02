@@ -22,37 +22,38 @@
     }
     #playButton {
       position: fixed;
-      bottom: 40px;
+      bottom: 60px;
       left: 50%;
-      transform: translateX(-50%);
-      width: 120px;
-      height: 120px;
+      transform: translate(-50%, -50%);
+      width: 180px;
+      height: 180px;
       background: rgba(0,0,0,0.8);
-      border: 3px solid white;
+      border: 4px solid white;
       border-radius: 50%;
       display: none;
       z-index: 9999;
       cursor: pointer;
       padding: 0;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+      box-shadow: 0 6px 12px rgba(0,0,0,0.4);
     }
     #playButton::before {
       content: '';
       position: absolute;
       top: 50%;
-      left: 55%;
-      transform: translate(-50%, -50%);
+      left: 50%;
+      transform: translate(-30%, -50%);
       width: 0;
       height: 0;
       border-style: solid;
-      border-width: 30px 0 30px 50px;
+      border-width: 45px 0 45px 75px;
       border-color: transparent transparent transparent white;
     }
     #playButton.playing::before {
-      width: 45px;
-      height: 45px;
+      width: 60px;
+      height: 60px;
       border: none;
       background: white;
+      transform: translate(-50%, -50%);
     }
   </style>
   <script>
@@ -119,21 +120,21 @@
     <a-entity camera></a-entity>
 
     <a-assets timeout="0">
-      <video id="video0" src="assets/Buchhaltung.mp4" preload="auto" crossorigin="anonymous" autoplay loop muted playsinline
+      <video id="video0" src="assets/Buchhaltung.mp4" preload="none" crossorigin="anonymous" loop playsinline
         webkit-playsinline style="display:none;"></video>
-      <video id="video1" src="assets/Customer_Service.mp4" preload="auto" crossorigin="anonymous" autoplay loop muted playsinline
+      <video id="video1" src="assets/Customer_Service.mp4" preload="none" crossorigin="anonymous" loop playsinline
         webkit-playsinline style="display:none;"></video>
-      <video id="video2" src="assets/E_Commerce.mp4" preload="auto" crossorigin="anonymous" autoplay loop muted playsinline
+      <video id="video2" src="assets/E_Commerce.mp4" preload="none" crossorigin="anonymous" loop playsinline
         webkit-playsinline style="display:none;"></video>
-      <video id="video3" src="assets/Fachinformatiker.mp4" preload="auto" crossorigin="anonymous" autoplay loop muted playsinline
+      <video id="video3" src="assets/Fachinformatiker.mp4" preload="none" crossorigin="anonymous" loop playsinline
         webkit-playsinline style="display:none;"></video>
-      <video id="video4" src="assets/Lagerlogistik.mp4" preload="auto" crossorigin="anonymous" autoplay loop muted playsinline
+      <video id="video4" src="assets/Lagerlogistik.mp4" preload="none" crossorigin="anonymous" loop playsinline
         webkit-playsinline style="display:none;"></video>
-      <video id="video5" src="assets/Mediengestalter.mp4" preload="auto" crossorigin="anonymous" autoplay loop muted playsinline
+      <video id="video5" src="assets/Mediengestalter.mp4" preload="none" crossorigin="anonymous" loop playsinline
         webkit-playsinline style="display:none;"></video>
-      <video id="video6" src="assets/PKA.mp4" preload="auto" crossorigin="anonymous" autoplay loop muted playsinline
+      <video id="video6" src="assets/PKA.mp4" preload="none" crossorigin="anonymous" loop playsinline
         webkit-playsinline style="display:none;"></video>
-      <video id="video7" src="assets/Studium.mp4" preload="auto" crossorigin="anonymous" autoplay loop muted playsinline
+      <video id="video7" src="assets/Studium.mp4" preload="none" crossorigin="anonymous" loop playsinline
         webkit-playsinline style="display:none;"></video>
     </a-assets>
 
