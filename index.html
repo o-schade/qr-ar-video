@@ -84,21 +84,21 @@
     <a-entity camera></a-entity>
 
     <a-assets timeout="0">
-      <video id="video0" src="assets/Buchhaltung.mp4" preload="none" crossorigin="anonymous" autoplay loop muted
-        playsinline webkit-playsinline style="display:none;"></video>
-      <video id="video1" src="assets/Customer_Service.mp4" preload="none" crossorigin="anonymous" autoplay loop muted
-        playsinline webkit-playsinline style="display:none;"></video>
-      <video id="video2" src="assets/E_Commerce.mp4" preload="none" crossorigin="anonymous" autoplay loop muted
-        playsinline webkit-playsinline style="display:none;"></video>
-      <video id="video3" src="assets/Fachinformatiker.mp4" preload="none" crossorigin="anonymous" autoplay loop muted
-        playsinline webkit-playsinline style="display:none;"></video>
-      <video id="video4" src="assets/Lagerlogistik.mp4" preload="none" crossorigin="anonymous" autoplay loop muted
-        playsinline webkit-playsinline style="display:none;"></video>
-      <video id="video5" src="assets/Mediengestalter.mp4" preload="none" crossorigin="anonymous" autoplay loop muted
-        playsinline webkit-playsinline style="display:none;"></video>
-      <video id="video6" src="assets/PKA.mp4" preload="none" crossorigin="anonymous" autoplay loop muted playsinline
+      <video id="video0" src="assets/Buchhaltung.mp4" preload="none" crossorigin="anonymous" loop playsinline
         webkit-playsinline style="display:none;"></video>
-      <video id="video7" src="assets/Studium.mp4" preload="none" crossorigin="anonymous" autoplay loop muted playsinline
+      <video id="video1" src="assets/Customer_Service.mp4" preload="none" crossorigin="anonymous" loop playsinline
+        webkit-playsinline style="display:none;"></video>
+      <video id="video2" src="assets/E_Commerce.mp4" preload="none" crossorigin="anonymous" loop playsinline
+        webkit-playsinline style="display:none;"></video>
+      <video id="video3" src="assets/Fachinformatiker.mp4" preload="none" crossorigin="anonymous" loop playsinline
+        webkit-playsinline style="display:none;"></video>
+      <video id="video4" src="assets/Lagerlogistik.mp4" preload="none" crossorigin="anonymous" loop playsinline
+        webkit-playsinline style="display:none;"></video>
+      <video id="video5" src="assets/Mediengestalter.mp4" preload="none" crossorigin="anonymous" loop playsinline
+        webkit-playsinline style="display:none;"></video>
+      <video id="video6" src="assets/PKA.mp4" preload="none" crossorigin="anonymous" loop playsinline
+        webkit-playsinline style="display:none;"></video>
+      <video id="video7" src="assets/Studium.mp4" preload="none" crossorigin="anonymous" loop playsinline
         webkit-playsinline style="display:none;"></video>
     </a-assets>
 
@@ -294,12 +294,26 @@
         const arVideo = document.getElementById(`ar-${this.data.videoId}`);
         let videoLoaded = false;
 
+        // Add click/touch handler
+        arVideo.addEventListener('click', () => {
+          if (videoEl.paused) {
+            videoEl.play()
+              .then(() => {
+                // Success - video is playing with audio
+              })
+              .catch(error => {
+                console.error('Video playback failed:', error);
+              });
+          } else {
+            videoEl.pause();
+          }
+        });
+
         videoEl.addEventListener('error', (e) => {
           console.error('Video error:', e.target.error);
         });
 
         marker.addEventListener("markerFound", () => {
-
           if (!videoLoaded) {
             if (!videoEl.src && videoEl.getAttribute('data-src')) {
               videoEl.src = videoEl.getAttribute('data-src');
@@ -314,11 +328,7 @@
           }
 
           arVideo.setAttribute("visible", true);
-          videoEl.play().then(() => {
-            currentVideo = videoEl;
-          }).catch(error => {
-            console.error('Video playback failed:', error);
-          });
+          currentVideo = videoEl;
         });
 
         marker.addEventListener("markerLost", () => {
