@@ -83,21 +83,21 @@
     <a-entity camera></a-entity>
 
     <a-assets timeout="0">
-      <video id="video0" src="assets/Buchhaltung.mp4" preload="none" crossorigin="anonymous" autoplay loop muted playsinline
+      <video id="video0" src="assets/Buchhaltung.mp4" preload="auto" crossorigin="anonymous" loop muted playsinline
         webkit-playsinline style="display:none;"></video>
-      <video id="video1" src="assets/Customer_Service.mp4" preload="none" crossorigin="anonymous" autoplay loop muted playsinline
+      <video id="video1" src="assets/Customer_Service.mp4" preload="auto" crossorigin="anonymous" loop muted playsinline
         webkit-playsinline style="display:none;"></video>
-      <video id="video2" src="assets/E_Commerce.mp4" preload="none" crossorigin="anonymous" autoplay loop muted playsinline
+      <video id="video2" src="assets/E_Commerce.mp4" preload="auto" crossorigin="anonymous" loop muted playsinline
         webkit-playsinline style="display:none;"></video>
-      <video id="video3" src="assets/Fachinformatiker.mp4" preload="none" crossorigin="anonymous" autoplay loop muted playsinline
+      <video id="video3" src="assets/Fachinformatiker.mp4" preload="auto" crossorigin="anonymous" loop muted playsinline
         webkit-playsinline style="display:none;"></video>
-      <video id="video4" src="assets/Lagerlogistik.mp4" preload="none" crossorigin="anonymous" autoplay loop muted playsinline
+      <video id="video4" src="assets/Lagerlogistik.mp4" preload="auto" crossorigin="anonymous" loop muted playsinline
         webkit-playsinline style="display:none;"></video>
-      <video id="video5" src="assets/Mediengestalter.mp4" preload="none" crossorigin="anonymous" autoplay loop muted playsinline
+      <video id="video5" src="assets/Mediengestalter.mp4" preload="auto" crossorigin="anonymous" loop muted playsinline
         webkit-playsinline style="display:none;"></video>
-      <video id="video6" src="assets/PKA.mp4" preload="none" crossorigin="anonymous" autoplay loop muted playsinline
+      <video id="video6" src="assets/PKA.mp4" preload="auto" crossorigin="anonymous" loop muted playsinline
         webkit-playsinline style="display:none;"></video>
-      <video id="video7" src="assets/Studium.mp4" preload="none" crossorigin="anonymous" autoplay loop muted playsinline
+      <video id="video7" src="assets/Studium.mp4" preload="auto" crossorigin="anonymous" loop muted playsinline
         webkit-playsinline style="display:none;"></video>
     </a-assets>
 
@@ -177,15 +177,10 @@
           scene.appendChild(marker);
         });
 
-        // Initialize videos but don't load them yet
+        // Initialize videos for immediate playback
         document.querySelectorAll('video').forEach(video => {
-          video.pause();
+          video.load();
           video.currentTime = 0;
-          video.preload = 'none'; // Ensure no preloading
-          // Remove src temporarily to prevent any automatic loading
-          const originalSrc = video.src;
-          video.removeAttribute('src');
-          video.setAttribute('data-src', originalSrc);
         });
       });
     </script>
