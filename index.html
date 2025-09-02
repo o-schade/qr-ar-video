@@ -81,7 +81,14 @@
             patternRatio: 0.75;
             maxDetectionRate: 30;' vr-mode-ui="enabled: false" loading-screen="enabled: false"
     renderer="antialias: true; logarithmicDepthBuffer: true;">
-    <a-entity camera></a-entity>
+    <a-entity camera look-controls>
+      <a-entity cursor="fuse: false; rayOrigin: mouse;"
+                raycaster="objects: .clickable"
+                position="0 0 -1"
+                geometry="primitive: ring; radiusInner: 0.01; radiusOuter: 0.02"
+                material="color: white; shader: flat">
+      </a-entity>
+    </a-entity>
 
     <a-assets timeout="0">
       <video id="video0" src="assets/Buchhaltung.mp4" preload="none" crossorigin="anonymous" loop playsinline
@@ -173,6 +180,8 @@
           video.setAttribute('position', videoSettings.position);
           video.setAttribute('rotation', videoSettings.rotation);
           video.setAttribute('visible', 'false');
+          video.setAttribute('class', 'clickable');
+          video.setAttribute('material', 'shader: flat');
 
           marker.appendChild(video)
           scene.appendChild(marker);
@@ -294,21 +303,40 @@
         const arVideo = document.getElementById(`ar-${this.data.videoId}`);
         let videoLoaded = false;
 
-        // Add click/touch handler
-        arVideo.addEventListener('click', () => {
+        // Add all possible interaction events for maximum compatibility
+        const handleInteraction = () => {
+          console.log('Video interaction detected');
+          console.log('Video state:', videoEl.paused ? 'paused' : 'playing');
+          
           if (videoEl.paused) {
+            // Add visual feedback
+            arVideo.setAttribute('material', 'color', '#666666');
             videoEl.play()
               .then(() => {
-                // Success - video is playing with audio
+                console.log('Video started playing');
+                arVideo.setAttribute('material', 'color', '#ffffff');
               })
               .catch(error => {
                 console.error('Video playback failed:', error);
+                arVideo.setAttribute('material', 'color', '#ff0000');
               });
           } else {
             videoEl.pause();
+            console.log('Video paused');
+            arVideo.setAttribute('material', 'color', '#666666');
           }
+        };
+
+        // Add multiple event listeners for better interaction support
+        arVideo.addEventListener('click', handleInteraction);
+        arVideo.addEventListener('touchstart', (e) => {
+          e.preventDefault(); // Prevent default to avoid double events
+          handleInteraction();
         });
 
+        // Add event listeners to track video state
+        videoEl.addEventListener('play', () => console.log('Video play event fired'));
+        videoEl.addEventListener('pause', () => console.log('Video pause event fired'));
         videoEl.addEventListener('error', (e) => {
           console.error('Video error:', e.target.error);
         });
