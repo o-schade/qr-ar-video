@@ -83,7 +83,19 @@
             // Hide loading once camera is ready
             showLoading(false);
             
-            // Videos will preload automatically
+            // Start preloading videos in background after camera is ready
+            setTimeout(() => {
+              document.querySelectorAll('video').forEach(video => {
+                const dataSrc = video.getAttribute('data-src');
+                if (dataSrc) {
+                  const preloadLink = document.createElement('link');
+                  preloadLink.rel = 'preload';
+                  preloadLink.as = 'video';
+                  preloadLink.href = dataSrc;
+                  document.head.appendChild(preloadLink);
+                }
+              });
+            }, 1000);
           })
           .catch(function(err) {
             console.log("Failed to get camera with constraints", err);
@@ -107,21 +119,21 @@
     <a-entity camera></a-entity>
 
     <a-assets timeout="0">
-      <video id="video0" src="assets/Buchhaltung.mp4" preload="none" crossorigin="anonymous" loop playsinline
+      <video id="video0" src="assets/Buchhaltung.mp4" preload="auto" crossorigin="anonymous" autoplay loop muted playsinline
         webkit-playsinline style="display:none;"></video>
-      <video id="video1" src="assets/Customer_Service.mp4" preload="none" crossorigin="anonymous" loop playsinline
+      <video id="video1" src="assets/Customer_Service.mp4" preload="auto" crossorigin="anonymous" autoplay loop muted playsinline
         webkit-playsinline style="display:none;"></video>
-      <video id="video2" src="assets/E_Commerce.mp4" preload="none" crossorigin="anonymous" loop playsinline
+      <video id="video2" src="assets/E_Commerce.mp4" preload="auto" crossorigin="anonymous" autoplay loop muted playsinline
         webkit-playsinline style="display:none;"></video>
-      <video id="video3" src="assets/Fachinformatiker.mp4" preload="none" crossorigin="anonymous" loop playsinline
+      <video id="video3" src="assets/Fachinformatiker.mp4" preload="auto" crossorigin="anonymous" autoplay loop muted playsinline
         webkit-playsinline style="display:none;"></video>
-      <video id="video4" src="assets/Lagerlogistik.mp4" preload="none" crossorigin="anonymous" loop playsinline
+      <video id="video4" src="assets/Lagerlogistik.mp4" preload="auto" crossorigin="anonymous" autoplay loop muted playsinline
         webkit-playsinline style="display:none;"></video>
-      <video id="video5" src="assets/Mediengestalter.mp4" preload="none" crossorigin="anonymous" loop playsinline
+      <video id="video5" src="assets/Mediengestalter.mp4" preload="auto" crossorigin="anonymous" autoplay loop muted playsinline
         webkit-playsinline style="display:none;"></video>
-      <video id="video6" src="assets/PKA.mp4" preload="none" crossorigin="anonymous" loop playsinline
+      <video id="video6" src="assets/PKA.mp4" preload="auto" crossorigin="anonymous" autoplay loop muted playsinline
         webkit-playsinline style="display:none;"></video>
-      <video id="video7" src="assets/Studium.mp4" preload="none" crossorigin="anonymous" loop playsinline
+      <video id="video7" src="assets/Studium.mp4" preload="auto" crossorigin="anonymous" autoplay loop muted playsinline
         webkit-playsinline style="display:none;"></video>
     </a-assets>
 
@@ -361,7 +373,9 @@
           arVideo.setAttribute("visible", true);
           currentVideo = videoEl;
           currentVideoEl = videoEl;
-          playButton.style.display = 'block';
+          videoEl.play().catch(error => {
+            console.error('Video autoplay failed:', error);
+          });
         });
 
         marker.addEventListener("markerLost", () => {
