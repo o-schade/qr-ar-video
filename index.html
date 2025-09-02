@@ -20,6 +20,38 @@
       padding: 20px;
       border-radius: 10px;
     }
+    #playButton {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      width: 60px;
+      height: 60px;
+      background: rgba(0,0,0,0.7);
+      border: none;
+      border-radius: 50%;
+      display: none;
+      z-index: 9999;
+      cursor: pointer;
+      padding: 0;
+    }
+    #playButton::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 55%;
+      transform: translate(-50%, -50%);
+      width: 0;
+      height: 0;
+      border-style: solid;
+      border-width: 15px 0 15px 25px;
+      border-color: transparent transparent transparent white;
+    }
+    #playButton.playing::before {
+      width: 25px;
+      height: 25px;
+      border: none;
+      background: white;
+    }
   </style>
   <script>
     function showLoading(show) {
@@ -74,6 +106,7 @@
 
 <body style="margin: 0; overflow: hidden;">
   <div id="loading">Loading AR Experience...</div>
+  <button id="playButton" aria-label="Play/Pause Video"></button>
   <a-scene embedded arjs='sourceType: webcam; 
             trackingMethod: best;
             debugUIEnabled: true;
@@ -81,14 +114,7 @@
             patternRatio: 0.75;
             maxDetectionRate: 30;' vr-mode-ui="enabled: false" loading-screen="enabled: false"
     renderer="antialias: true; logarithmicDepthBuffer: true;">
-    <a-entity camera look-controls>
-      <a-entity cursor="fuse: false; rayOrigin: mouse;"
-                raycaster="objects: .clickable"
-                position="0 0 -1"
-                geometry="primitive: ring; radiusInner: 0.01; radiusOuter: 0.02"
-                material="color: white; shader: flat">
-      </a-entity>
-    </a-entity>
+    <a-entity camera></a-entity>
 
     <a-assets timeout="0">
       <video id="video0" src="assets/Buchhaltung.mp4" preload="none" crossorigin="anonymous" loop playsinline
@@ -291,6 +317,26 @@
     });
 
     let currentVideo = null;
+    let currentVideoEl = null;
+    const playButton = document.getElementById('playButton');
+
+    // Add click handler to the play button
+    playButton.addEventListener('click', () => {
+      if (!currentVideoEl) return;
+      
+      if (currentVideoEl.paused) {
+        currentVideoEl.play()
+          .then(() => {
+            playButton.classList.add('playing');
+          })
+          .catch(error => {
+            console.error('Video playback failed:', error);
+          });
+      } else {
+        currentVideoEl.pause();
+        playButton.classList.remove('playing');
+      }
+    });
 
     AFRAME.registerComponent("video-handler", {
       schema: {
@@ -303,40 +349,6 @@
         const arVideo = document.getElementById(`ar-${this.data.videoId}`);
         let videoLoaded = false;
 
-        // Add all possible interaction events for maximum compatibility
-        const handleInteraction = () => {
-          console.log('Video interaction detected');
-          console.log('Video state:', videoEl.paused ? 'paused' : 'playing');
-          
-          if (videoEl.paused) {
-            // Add visual feedback
-            arVideo.setAttribute('material', 'color', '#666666');
-            videoEl.play()
-              .then(() => {
-                console.log('Video started playing');
-                arVideo.setAttribute('material', 'color', '#ffffff');
-              })
-              .catch(error => {
-                console.error('Video playback failed:', error);
-                arVideo.setAttribute('material', 'color', '#ff0000');
-              });
-          } else {
-            videoEl.pause();
-            console.log('Video paused');
-            arVideo.setAttribute('material', 'color', '#666666');
-          }
-        };
-
-        // Add multiple event listeners for better interaction support
-        arVideo.addEventListener('click', handleInteraction);
-        arVideo.addEventListener('touchstart', (e) => {
-          e.preventDefault(); // Prevent default to avoid double events
-          handleInteraction();
-        });
-
-        // Add event listeners to track video state
-        videoEl.addEventListener('play', () => console.log('Video play event fired'));
-        videoEl.addEventListener('pause', () => console.log('Video pause event fired'));
         videoEl.addEventListener('error', (e) => {
           console.error('Video error:', e.target.error);
         });
@@ -353,13 +365,24 @@
           if (currentVideo && currentVideo !== videoEl) {
             currentVideo.pause();
             document.getElementById(`ar-${currentVideo.id}`).setAttribute("visible", false);
+            playButton.classList.remove('playing');
           }
 
           arVideo.setAttribute("visible", true);
           currentVideo = videoEl;
+          currentVideoEl = videoEl;
+          playButton.style.display = 'block';
         });
 
         marker.addEventListener("markerLost", () => {
+          arVideo.setAttribute("visible", false);
+          // Hide play button if no markers are visible
+          setTimeout(() => {
+            if (!document.querySelector('a-marker[visible]')) {
+              playButton.style.display = 'none';
+              currentVideoEl = null;
+            }
+          }, 300);
         });
       },
     });
